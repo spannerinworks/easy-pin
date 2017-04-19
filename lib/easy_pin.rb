@@ -1,38 +1,67 @@
-class EasyPin
-  # removes m, n because they be easily misunderstood when speakind
+module EasyPin
+  # removes m, n because they be easily misunderstood when speaking
   # removes i, s, 1, 5, o, 0 because they can be easily misread
   # removes a, e, f, u to avoid swear words being generated
-  EASY_PUBLIC = 'bcdghjkpqrtvwxyz2346789'
+  EASY_PUBLIC = 'bcdghjkpqrtvwxyz2346789'.chars
 
-  NUMERIC = '0123456789'
+  NUMERIC = '0123456789'.chars
 
   class Generator
 
-    def self.build(charset: EASY_PUBLIC, random_seed: 24, padding: 4)
-      Generator.new(base_converter: BaseConverter.new(charset.size),
-                    checksum_generator: ChecksumGenerator.new(charset.size),
-                    tumbler: Tumbler.new(charset, Random.new(random_seed)),
-                    padding: padding)
+    def self.build(dictionary: EASY_PUBLIC, random_seed: 24, padding: 4, separator: '')
+      Generator.new(base_converter: BaseConverter.new(dictionary.size),
+                    checksum_generator: ChecksumGenerator.new(dictionary.size),
+                    tumbler: Tumbler.new(dictionary, Random.new(random_seed)),
+                    padding: padding,
+                    separator: separator)
     end
 
-    def initialize(base_converter:, checksum_generator:, tumbler:, padding:)
+    def initialize(base_converter:, checksum_generator:, tumbler:, padding:, separator:)
       @base_converter = base_converter
       @checksum_generator = checksum_generator
       @tumbler = tumbler
       @padding = padding
+      @separator = separator
     end
-
 
     def generate(integer)
       parts = @base_converter.convert(integer)
 
-      parts << @checksum_generator.checksum(parts)
+      parts = @checksum_generator.checksum(parts)
 
+      parts = pad(parts)
+
+      parts = @tumbler.tumble(parts)
+
+      parts.join(@separator)
+    end
+
+    def pad(parts)
       padding_parts = [0] * [@padding - parts.size, 0].max
 
-      code = padding_parts + parts
+      padding_parts + parts
+    end
 
-      @tumbler.tumble(code).join
+    def revert(code)
+      parts = code.split(@separator)
+
+      parts = @tumbler.untumble(parts)
+
+      parts = unpad(parts)
+
+      @checksum_generator.validate(parts)
+
+      parts = @checksum_generator.unchecksum(parts)
+
+      @base_converter.unconvert(parts)
+    end
+
+    def unpad(parts)
+      if parts[0].zero?
+        unpad(parts[1..-1])
+      else
+        parts
+      end
     end
 
   end
@@ -45,13 +74,26 @@ class EasyPin
     def convert(integer)
       parts = []
 
-      while @base ** parts.length <= integer
-        parts << (integer / (@base ** parts.length)) % @base
+      while integer > 0
+        parts.unshift(integer % @base)
+        integer = integer / @base
       end
 
       parts
     end
+
+    def unconvert(parts)
+      sum = 0
+
+      parts.reverse.each_with_index do |part, index|
+        sum += part * (@base ** index)
+      end
+
+      sum
+    end
   end
+
+  class InvalidChecksum < StandardError; end
 
   class ChecksumGenerator
     def initialize(base)
@@ -59,18 +101,39 @@ class EasyPin
     end
 
     def checksum(parts)
-      parts.inject(0) { |acc, part| acc + (part % 2) } % @base
+      parts + [sum(parts)]
+    end
+
+    def unchecksum(parts)
+      parts[0..-2]
+    end
+
+    def validate(parts)
+      checksum = sum(parts[0..-2])
+      expected = parts[-1]
+      raise InvalidChecksum, "invalid checksum #{checksum}, expected #{expected}" if checksum != expected
+    end
+
+    private def sum(parts)
+      parts.inject(:+) % @base
     end
   end
 
   class Tumbler
-    def initialize(charset, random, max_width = 32)
-      @shuffle = (0..max_width-1).map{ charset.chars.shuffle(random: random) }
+    def initialize(dictionary, random, max_width = 32)
+      @shuffle = (0..max_width-1).map{ dictionary.shuffle(random: random) }
+      @unshuffle = @shuffle.map{ |dict| Hash[dict.each_with_index.map{|a,b| [a,b]}] }
     end
 
     def tumble(parts)
       res = []
       parts.each_with_index{|part, index| res << @shuffle[index][part]}
+      res
+    end
+
+    def untumble(parts)
+      res = []
+      parts.each_with_index{|part, index| res << @unshuffle[index][part]}
       res
     end
   end
