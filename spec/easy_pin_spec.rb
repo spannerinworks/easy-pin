@@ -8,10 +8,10 @@ RSpec.describe EasyPin do
 
     uniq_hash ||= {}
 
-    Prime.each(100_000) do |prime|
-      code = generator.generate(prime)
+    (1..100_000).each do |i|
+      code = generator.generate(i)
 
-      expect(generator.revert(code)).to eq prime
+      expect(generator.revert(code)).to eq i
 
       expect(uniq_hash.key?(code)).to eq false
 
@@ -19,6 +19,12 @@ RSpec.describe EasyPin do
 
       uniq_hash[code] = true
     end
+  end
+
+  it 'raises if an integer < 1 is supplied' do
+    generator = EasyPin::Generator.build
+
+    expect{ generator.generate(0) }.to raise_error(EasyPin::InvalidInput)
   end
 
   describe 'revert' do
@@ -67,11 +73,32 @@ RSpec.describe EasyPin do
       cg.validate([2, 2, 1])
     end
 
-    it 'raises when validating a bad code' do
+    it 'raises when validating a code with 1 character wrong' do
       cg = EasyPin::ChecksumGenerator.new(3)
 
-      expect{ cg.validate([2, 1]) }.to raise_error(EasyPin::InvalidChecksum)
+      expect{ cg.validate([1, 1, 0]) }.to raise_error(EasyPin::InvalidChecksum)
+      expect{ cg.validate([1, 3, 0]) }.to raise_error(EasyPin::InvalidChecksum)
+
+      expect{ cg.validate([0, 2, 0]) }.to raise_error(EasyPin::InvalidChecksum)
+      expect{ cg.validate([2, 2, 0]) }.to raise_error(EasyPin::InvalidChecksum)
+
       expect{ cg.validate([1, 2, 1]) }.to raise_error(EasyPin::InvalidChecksum)
+      expect{ cg.validate([1, 2, 2]) }.to raise_error(EasyPin::InvalidChecksum)
+    end
+
+    it "raises when validating a code 2 characters wrong - so long as the errors don't add up to the base" do
+      cg = EasyPin::ChecksumGenerator.new(3)
+
+      # good
+      cg.validate([1, 1, 2])
+
+      # out by 2
+      expect{ cg.validate([2, 2, 2]) }.to raise_error(EasyPin::InvalidChecksum)
+      expect{ cg.validate([0, 0, 2]) }.to raise_error(EasyPin::InvalidChecksum)
+
+      # oh well
+      expect{ cg.validate([2, 0, 2]) }.to_not raise_error
+      expect{ cg.validate([0, 2, 2]) }.to_not raise_error
     end
   end
 

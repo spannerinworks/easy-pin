@@ -25,6 +25,10 @@ module EasyPin
     end
 
     def generate(integer)
+      integer = integer.to_i
+
+      raise InvalidInput, 'input must be an integer >= 1' unless integer >= 1
+
       parts = @base_converter.convert(integer)
 
       parts = @checksum_generator.checksum(parts)
@@ -65,6 +69,8 @@ module EasyPin
     end
 
   end
+
+  class InvalidInput < StandardError; end
 
   class BaseConverter
     def initialize(base)
