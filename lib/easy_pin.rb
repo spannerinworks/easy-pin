@@ -12,16 +12,16 @@ module EasyPin
       Generator.new(base_converter: BaseConverter.new(dictionary.size),
                     checksum_generator: ChecksumGenerator.new(dictionary.size),
                     tumbler: Tumbler.new(dictionary, Random.new(random_seed)),
-                    padding: padding,
+                    padder: Padder.new(padding),
                     separator: separator)
     end
 
-    def initialize(base_converter:, checksum_generator:, tumbler:, padding:, separator:)
+    def initialize(base_converter:, checksum_generator:, tumbler:, padder:, separator:)
       @base_converter = base_converter
       @checksum_generator = checksum_generator
       @tumbler = tumbler
-      @padding = padding
       @separator = separator
+      @padder = padder
     end
 
     def generate(integer)
@@ -33,17 +33,11 @@ module EasyPin
 
       parts = @checksum_generator.checksum(parts)
 
-      parts = pad(parts)
+      parts = @padder.pad(parts)
 
       parts = @tumbler.tumble(parts)
 
       parts.join(@separator)
-    end
-
-    def pad(parts)
-      padding_parts = [0] * [@padding - parts.size, 0].max
-
-      padding_parts + parts
     end
 
     def revert(code)
@@ -51,21 +45,13 @@ module EasyPin
 
       parts = @tumbler.untumble(parts)
 
-      parts = unpad(parts)
+      parts = @padder.unpad(parts)
 
       @checksum_generator.validate(parts)
 
       parts = @checksum_generator.unchecksum(parts)
 
       @base_converter.unconvert(parts)
-    end
-
-    def unpad(parts)
-      if parts[0].zero?
-        unpad(parts[1..-1])
-      else
-        parts
-      end
     end
 
   end
@@ -123,6 +109,27 @@ module EasyPin
     private def sum(parts)
       parts.inject(:+) % @base
     end
+  end
+
+  class Padder
+    def initialize(amount)
+      @amount = amount
+    end
+
+    def pad(parts)
+      padding_parts = [0] * [@amount - parts.size, 0].max
+
+      padding_parts + parts
+    end
+
+    def unpad(parts)
+      if parts[0].zero?
+        unpad(parts[1..-1])
+      else
+        parts
+      end
+    end
+
   end
 
   class Tumbler

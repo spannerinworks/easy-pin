@@ -3,7 +3,7 @@ require 'prime'
 
 RSpec.describe EasyPin do
 
-  it 'generates unique reversable pin codes that are made up of the dictionary' do
+  it 'generates unique revertable pin codes that are made up of the dictionary' do
     generator = EasyPin::Generator.build
 
     uniq_hash ||= {}
@@ -34,7 +34,7 @@ RSpec.describe EasyPin do
       generator = EasyPin::Generator.new(base_converter: EasyPin::BaseConverter.new(dictionary.size),
                                          checksum_generator: EasyPin::ChecksumGenerator.new(dictionary.size),
                                          tumbler: IdentityTumbler.new,
-                                         padding: 4,
+                                         padder: EasyPin::Padder.new(4),
                                          separator: '')
 
       code = generator.generate(1234)
