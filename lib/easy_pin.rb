@@ -13,15 +13,15 @@ module EasyPin
                     checksum_generator: ChecksumGenerator.new(dictionary.size),
                     tumbler: Tumbler.new(dictionary, Random.new(random_seed)),
                     padder: Padder.new(padding),
-                    separator: separator)
+                    formatter: Formatter.new(separator))
     end
 
-    def initialize(base_converter:, checksum_generator:, tumbler:, padder:, separator:)
+    def initialize(base_converter:, checksum_generator:, tumbler:, padder:, formatter:)
       @base_converter = base_converter
       @checksum_generator = checksum_generator
       @tumbler = tumbler
-      @separator = separator
       @padder = padder
+      @formatter = formatter
     end
 
     def generate(integer)
@@ -37,17 +37,15 @@ module EasyPin
 
       parts = @tumbler.tumble(parts)
 
-      parts.join(@separator)
+      @formatter.format(parts)
     end
 
     def revert(code)
-      parts = code.split(@separator)
+      parts = @formatter.unformat(code)
 
       parts = @tumbler.untumble(parts)
 
       parts = @padder.unpad(parts)
-
-      @checksum_generator.validate(parts)
 
       parts = @checksum_generator.unchecksum(parts)
 
@@ -97,6 +95,7 @@ module EasyPin
     end
 
     def unchecksum(parts)
+      validate(parts)
       parts[0..-2]
     end
 
@@ -139,15 +138,47 @@ module EasyPin
     end
 
     def tumble(parts)
+      validate parts
       res = []
-      parts.each_with_index{|part, index| res << @shuffle[index][part]}
+      parts.each_with_index{|part, index| res << @shuffle.fetch(index).fetch(part)}
       res
     end
 
     def untumble(parts)
+      validate parts
       res = []
-      parts.each_with_index{|part, index| res << @unshuffle[index][part]}
+      parts.each_with_index{|part, index| res << @unshuffle.fetch(index).fetch(part)}
       res
+    end
+
+    def validate(parts)
+      raise InvalidInput, 'input has too many values' unless parts.length < @shuffle.length
+
+      parts.each_with_index do |part, index|
+        case part
+        when Numeric
+          max = @shuffle.fetch(index).length - 1
+          raise InvalidInput, "#{part} is not within #{0} and #{max}" unless part <= max && part >= 0
+        when String
+          raise InvalidInput, "'#{part}' is not a valid value" unless @unshuffle.fetch(index).key?(part)
+        else
+          raise InvalidInput, "#{part.class} is not a valid input type"
+        end
+      end
+    end
+  end
+
+  class Formatter
+    def initialize(separator)
+      @separator = separator
+    end
+
+    def format(parts)
+      parts.join(@separator)
+    end
+
+    def unformat(code)
+      code.split(@separator)
     end
   end
 

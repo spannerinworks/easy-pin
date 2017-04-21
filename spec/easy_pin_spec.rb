@@ -35,7 +35,7 @@ RSpec.describe EasyPin do
                                          checksum_generator: EasyPin::ChecksumGenerator.new(dictionary.size),
                                          tumbler: IdentityTumbler.new,
                                          padder: EasyPin::Padder.new(4),
-                                         separator: '')
+                                         formatter: EasyPin::Formatter.new(''))
 
       code = generator.generate(1234)
       expect(code).to eq '12340'
@@ -121,6 +121,16 @@ RSpec.describe EasyPin do
 
       expect(tumbler.untumble(['c', 'b', 'a'])).to eq [0, 1, 2]
       expect(tumbler.untumble(['a', 'b', 'c'])).to eq [2, 1, 0]
+    end
+
+    it 'raises errors when the input is invalid' do
+      tumbler = EasyPin::Tumbler.new('abc'.chars, double, 3)
+
+      expect{ tumbler.validate([-1]) }.to raise_error(EasyPin::InvalidInput)
+      expect{ tumbler.validate([3]) }.to raise_error(EasyPin::InvalidInput)
+      expect{ tumbler.validate([1,1,1,1]) }.to raise_error(EasyPin::InvalidInput)
+      expect{ tumbler.validate(['d']) }.to raise_error(EasyPin::InvalidInput)
+      expect{ tumbler.validate([Object.new]) }.to raise_error(EasyPin::InvalidInput)
     end
   end
 
