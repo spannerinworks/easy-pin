@@ -54,7 +54,10 @@ module EasyPin
 
   end
 
-  class InvalidInput < StandardError; end
+  class Error < StandardError; end
+  class InvalidInput < Error; end
+  class InvalidChecksum < Error; end
+  class InvalidConfig < Error; end
 
   class BaseConverter
     def initialize(base)
@@ -82,8 +85,6 @@ module EasyPin
       sum
     end
   end
-
-  class InvalidChecksum < StandardError; end
 
   class ChecksumGenerator
     def initialize(base)
@@ -133,6 +134,7 @@ module EasyPin
 
   class Tumbler
     def initialize(dictionary, random, max_width = 32)
+      raise InvalidConfig, 'Dictionary must have more than one item' if dictionary.size < 2
       @shuffle = (0..max_width-1).map{ dictionary.shuffle(random: random) }
       @unshuffle = @shuffle.map{ |dict| Hash[dict.each_with_index.map{|a,b| [a,b]}] }
     end

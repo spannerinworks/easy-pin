@@ -104,7 +104,7 @@ RSpec.describe EasyPin do
 
   describe EasyPin::Tumbler do
     it 'maps each part to a randomly shuffled character - and back again' do
-      dictionary = double(shuffle: 'abc'.chars)
+      dictionary = double(shuffle: 'abc'.chars, size: 3)
       tumbler = EasyPin::Tumbler.new(dictionary, double(rand: 0))
 
       expect(tumbler.tumble([0, 1, 2])).to eq ['a', 'b', 'c']
@@ -113,7 +113,7 @@ RSpec.describe EasyPin do
       expect(tumbler.untumble(['a', 'b', 'c'])).to eq [0, 1, 2]
       expect(tumbler.untumble(['c', 'b', 'a'])).to eq [2, 1, 0]
 
-      dictionary = double(shuffle: 'cba'.chars)
+      dictionary = double(shuffle: 'cba'.chars, size: 3)
       tumbler = EasyPin::Tumbler.new(dictionary, double(rand: 0))
 
       expect(tumbler.tumble([0, 1, 2])).to eq ['c', 'b', 'a']
@@ -131,6 +131,10 @@ RSpec.describe EasyPin do
       expect{ tumbler.validate([1,1,1,1]) }.to raise_error(EasyPin::InvalidInput)
       expect{ tumbler.validate(['d']) }.to raise_error(EasyPin::InvalidInput)
       expect{ tumbler.validate([Object.new]) }.to raise_error(EasyPin::InvalidInput)
+    end
+
+    it 'raises and error when a single item dictionary is configured' do
+      expect{ EasyPin::Tumbler.new(['a'], Random.new(2)) }.to raise_error(EasyPin::InvalidConfig)
     end
   end
 
